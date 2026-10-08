@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Assistant</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <div class="app-container">
+
+        <!-- Header -->
+        <header class="header">
+
+            <div class="brand">
+                <div class="brand-icon">✦</div>
+
+                <div>
+                    <h1>Work Assistant</h1>
+                    <p>AI-powered workplace & career assistant</p>
+                </div>
+            </div>
+
+            <div class="status">
+                <span class="status-dot"></span>
+                Online
+            </div>
+
+        </header>
+
+
+        <!-- Main Chat Area -->
+        <main class="chat-container">
+
+            <!-- Welcome Screen -->
+            <div id="welcome-screen">
+
+                <div class="welcome-icon">✦</div>
+
+                <h2>How can I help you today?</h2>
+
+                <p>
+                    Ask me about jobs, interviews, workplace skills,
+                    resumes and career development.
+                </p>
+
+                <div class="suggestions">
+
+                    <button class="suggestion-card"
+                            onclick="useSuggestion('How can I prepare for a job interview?')">
+
+                        <span>💼</span>
+
+                        <div>
+                            <strong>Interview Preparation</strong>
+                            <small>Prepare for your next interview</small>
+                        </div>
+
+                    </button>
+
+
+                    <button class="suggestion-card"
+                            onclick="useSuggestion('How can I improve my resume?')">
+
+                        <span>📄</span>
+
+                        <div>
+                            <strong>Resume Help</strong>
+                            <small>Improve your resume</small>
+                        </div>
+
+                    </button>
+
+
+                    <button class="suggestion-card"
+                            onclick="useSuggestion('What skills are important for getting a job?')">
+
+                        <span>🎯</span>
+
+                        <div>
+                            <strong>Career Skills</strong>
+                            <small>Build useful workplace skills</small>
+                        </div>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- Messages -->
+            <div id="chat-box"></div>
+
+        </main>
+
+
+        <!-- Input Area -->
+        <div class="bottom-area">
+
+            <div class="input-area">
+
+                <input
+                    type="text"
+                    id="message"
+                    placeholder="Ask something about jobs or workplace skills..."
+                    autocomplete="off"
+                >
+
+                <button
+                    class="send-button"
+                    onclick="sendMessage()"
+                    aria-label="Send message"
+                    title="Send message"
+                >
+                    ➤
+                </button>
+
+            </div>
+
+            <button
+                class="clear-button"
+                onclick="clearConversation()"
+            >
+                🗑 Clear Conversation
+            </button>
+
+        </div>
+
+    </div>
+
+
+<script>
+
+    function useSuggestion(text) {
+
+        const input = document.getElementById("message");
+
+        input.value = text;
+        input.focus();
+    }
+
+
+    function showError(message) {
+
+        const chatBox = document.getElementById("chat-box");
+
+        chatBox.innerHTML += `
+            <div class="error-message">
+                <strong>Notice:</strong>
+                ${message}
+            </div>
+        `;
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+
+    async function sendMessage() {
+
+        const input = document.getElementById("message");
+        const chatBox = document.getElementById("chat-box");
+        const sendButton = document.querySelector(".send-button");
+
+        const message = input.value.trim();
+
+
+        /* Empty message validation */
+        if (!message) {
+
+            showError("Please enter a message before sending.");
+
+            input.focus();
+
+            return;
+        }
+
+
+        document.getElementById("welcome-screen").style.display = "none";
+
+
+        /* Display user's message */
+        chatBox.innerHTML += `
+            <div class="user-message">
+                <strong>You:</strong> ${message}
+            </div>
+        `;
+
+        input.value = "";
+        sendButton.disabled = true;
+
+
+        /* Loading message */
+        chatBox.innerHTML += `
+            <div id="loading-message" class="ai-message">
+                <strong>Assistant:</strong> Thinking...
+            </div>
+        `;
+
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+
+        try {
+
+            const response = await fetch("/chat", {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    message: message
+                })
+            });
+
+
+            const data = await response.json();
+
+            sendButton.disabled = false;
+
+
+            const loadingMessage =
+                document.getElementById("loading-message");
+
+
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+
+
+            if (data.response) {
+
+                let sourcesHTML = "";
+
+
+                if (data.sources && data.sources.length > 0) {
+
+                    sourcesHTML = `
+                        <div class="sources">
+
+                            <strong>Sources:</strong>
+
+                            <ul>
+
+                                ${data.sources.map(source => `
+                                    <li>
+                                        <a href="${source.url}"
+                                           target="_blank"
+                                           rel="noopener noreferrer">
+                                            ${source.title || source.url}
+                                        </a>
+                                    </li>
+                                `).join("")}
+
+                            </ul>
+
+                        </div>
+                    `;
+                }
+
+
+                chatBox.innerHTML += `
+                    <div class="ai-message">
+
+                        <strong>Assistant:</strong>
+
+                        ${data.response}
+
+                        ${sourcesHTML}
+
+                    </div>
+                `;
+
+            } else {
+
+                showError(
+                    data.error || "Something went wrong."
+                );
+            }
+
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+
+        } catch (error) {
+
+            const loadingMessage =
+                document.getElementById("loading-message");
+
+
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+
+
+            sendButton.disabled = false;
+
+
+            showError(
+                "Could not connect to the server."
+            );
+        }
+    }
+
+
+    /* Enter key support */
+    document.getElementById("message").addEventListener(
+        "keydown",
+        function(event) {
+
+            if (event.key === "Enter") {
+
+                event.preventDefault();
+
+                sendMessage();
+            }
+        }
+    );
+
+
+    async function clearConversation() {
+
+        try {
+
+            const response = await fetch("/clear", {
+                method: "POST"
+            });
+
+
+            const data = await response.json();
+
+
+            if (response.ok) {
+
+                /* Clear messages */
+                document.getElementById("chat-box").innerHTML = "";
+
+
+                /* Show welcome screen again */
+                document.getElementById(
+                    "welcome-screen"
+                ).style.display = "block";
+
+
+                /* Clear input */
+                document.getElementById("message").value = "";
+
+
+                /* Focus input */
+                document.getElementById("message").focus();
+
+
+            } else {
+
+                showError(
+                    "Could not clear the conversation."
+                );
+            }
+
+
+        } catch (error) {
+
+            showError(
+                "Could not connect to the server."
+            );
+        }
+    }
+
+</script>
+
+</body>
+</html>
